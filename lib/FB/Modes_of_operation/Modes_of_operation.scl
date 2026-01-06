@@ -1,0 +1,116 @@
+﻿FUNCTION_BLOCK "Modes_of_operation"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_INPUT 
+      IN_Button_Ack : Bool;
+      IN_Switch_Auto : Bool;
+      IN_Switch_Emergency_OK : Bool;
+      IN_Fault : Bool;
+   END_VAR
+
+   VAR_OUTPUT 
+      OUT_Mode_Auto : Bool;
+      OUT_Mode_Manual : Bool;
+      OUT_LED_Auto : Bool;
+      OUT_LED_Manual : Bool;
+      OUT_LED_Ack : Bool;
+   END_VAR
+
+   VAR 
+      ST_Mode_selected : Bool;
+      ST_Auto : Bool;
+      ST_Fault_Ack : Bool;
+      R_TRIG_Ack {InstructionName := 'R_TRIG'; LibVersion := '1.0'} : R_TRIG;
+   END_VAR
+
+   VAR_TEMP 
+      T_pf_Ack : Bool;
+   END_VAR
+
+
+BEGIN
+	REGION DESCRIPTION
+	(*
+	Dieser Funktionsbaustein verwaltet die Auswahl und Freigabe der Betriebsarten Auto und Manual.
+	Eine Betriebsart kann nur übernommen werden, wenn kein Fehler ansteht und der Not-Aus freigegeben ist.
+	
+	Die aktuell gewählte Betriebsart wird durch Betätigung des Quittiertasters übernommen.
+	Bei anstehendem Fehler oder betätigtem Not-Aus werden alle Betriebsarten zurückgesetzt.
+	Die Quitt-LED signalisiert den Status von Fehlern und erforderlichen Quittierungen durch Blinken bzw. Dauerlicht.
+	*)
+	END_REGION
+	
+	REGION INITIALISIATION
+	    #R_TRIG_Ack(CLK:= #IN_Button_Ack, Q => #T_pf_Ack);
+	    
+	    IF NOT #IN_Fault THEN
+	        #ST_Fault_Ack := FALSE;
+	    END_IF;
+	    
+	    IF #IN_Fault AND #T_pf_Ack THEN
+	        #ST_Fault_Ack := TRUE;
+	    END_IF;
+	    
+	END_REGION
+	
+	REGION MODE OF OPERATION
+	
+	    // Wenn Fehler oder Notaus dann werden alle Betriebsarten zurückgesetzt 
+	    IF NOT #IN_Switch_Emergency_OK OR #IN_Fault THEN
+	        #OUT_Mode_Auto := FALSE;
+	        #OUT_Mode_Manual := FALSE;
+	        #ST_Mode_selected := FALSE;
+	        #ST_Auto := FALSE;
+	    // Wenn kein Fehler und Quittiert wurde wird ausgewählte Betriebsart aktiv    
+	    ELSE
+	        IF #T_pf_Ack THEN
+	            #OUT_Mode_Auto := #IN_Switch_Auto;
+	            #OUT_Mode_Manual := NOT #IN_Switch_Auto;
+	            #ST_Auto := #IN_Switch_Auto;
+	            #ST_Mode_selected := TRUE;
+	        END_IF;
+	        
+	    END_IF;
+	    
+	END_REGION
+	
+	REGION LED
+	    
+	    REGION OPERATION MODE
+	        // Wenn Fehler oder Notaus dann werden die Leuchten für die Betriebsart deaktiviert, andernfalls aktiviert
+	        IF NOT #IN_Switch_Emergency_OK OR #IN_Fault OR NOT #ST_Mode_selected THEN
+	            #OUT_LED_Auto := FALSE;
+	            #OUT_LED_Manual := FALSE;
+	        ELSE
+	            #OUT_LED_Auto := #ST_Auto;
+	            #OUT_LED_Manual := NOT #ST_Auto;
+	        END_IF;
+	        
+	    END_REGION
+	    
+	    REGION ACKNOWLEDGE
+	        
+	        IF #IN_Fault THEN
+	            // Wenn Fehler nach Quittierung ansteht leuchtet LED, andernfalls blinkt sie
+	            IF #ST_Fault_Ack THEN
+	                #OUT_LED_Ack := TRUE;
+	            ELSE
+	                #OUT_LED_Ack := "Clock_1Hz";
+	            END_IF;
+	            
+	        // Wenn Betriebsart gewechselt wurde aber noch nicht quittiert blink die LED, ansonsten ist sie aus
+	        ELSIF NOT #ST_Mode_selected OR (#ST_Auto <> #IN_Switch_Auto) THEN
+	            #OUT_LED_Ack := "Clock_1Hz";
+	
+	        ELSE
+	            #OUT_LED_Ack := FALSE;
+	        END_IF;
+	        
+	    END_REGION
+	
+	END_REGION
+	
+	
+	
+END_FUNCTION_BLOCK
+
