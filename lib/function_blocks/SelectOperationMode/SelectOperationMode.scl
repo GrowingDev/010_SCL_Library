@@ -1,0 +1,127 @@
+﻿FUNCTION_BLOCK "Modes_of_operation"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_INPUT 
+      buttonAck : Bool;
+      switchAuto : Bool;
+      switchEmergencyOk : Bool;
+      fault : Bool;
+   END_VAR
+
+   VAR_OUTPUT 
+      modeAuto : Bool;
+      modeManual : Bool;
+      lampAuto : Bool;
+      lampManual : Bool;
+      lampAck : Bool;
+   END_VAR
+
+   VAR 
+      modeSelected : Bool;
+      autoSelected : Bool;
+      faultAck : Bool;
+      R_TRIG_Ack {InstructionName := 'R_TRIG'; LibVersion := '1.0'} : R_TRIG;
+   END_VAR
+
+   VAR_TEMP 
+      risingAck : Bool;
+   END_VAR
+
+
+BEGIN
+	REGION Description
+	  //======================================================================
+	  // (C)Copyright (company) [2026] - [year revision]
+	  //----------------------------------------------------------------------
+	  // Title: SelectOperationMode
+	  // Comment/Function: This function block handles the current mode of operation
+	  // Library/Family: --
+	  // Author: Andreas Benz
+	  // Tested on System: S7 PLCSIM V20
+	  // Engineering: TIA Portal V20
+	  // Restrictions: --
+	  // Requirements: --
+	  //----------------------------------------------------------------------
+	  // Change log table:
+	  // Version     | Date       | Expert in charge | Changes applied
+	  //-------------|------------|------------------|------------------------
+	  // 001.000.000 | 2026-01-03 | Andreas Benz     | First released version
+	  //======================================================================
+	  // 001.001.000 | 2026-01-26 | Andreas Benz     | Refactoring
+	  //======================================================================
+	END_REGION Description
+	
+	REGION Initialisation
+	    #R_TRIG_Ack(CLK:= #buttonAck, Q => #risingAck);
+	    
+	    IF NOT #fault THEN
+	        #faultAck := FALSE;
+	    END_IF;
+	    
+	    IF #fault AND #risingAck THEN
+	        #faultAck := TRUE;
+	    END_IF;
+	    
+	END_REGION
+	
+	REGION Mode of operation
+	
+	    // Wenn Fehler oder Notaus dann werden alle Betriebsarten zurückgesetzt 
+	    IF NOT #switchEmergencyOk OR #fault THEN
+	        #modeAuto := FALSE;
+	        #modeManual := FALSE;
+	        #modeSelected := FALSE;
+	        #autoSelected := FALSE;
+	    // Wenn kein Fehler und Quittiert wurde wird ausgewählte Betriebsart aktiv    
+	    ELSE
+	        IF #risingAck THEN
+	            #modeAuto := #switchAuto;
+	            #modeManual := NOT #switchAuto;
+	            #autoSelected := #switchAuto;
+	            #modeSelected := TRUE;
+	        END_IF;
+	        
+	    END_IF;
+	    
+	END_REGION
+	
+	REGION Lamps
+	    
+	    REGION Operation mode
+	        // Wenn Fehler oder Notaus dann werden die Leuchten für die Betriebsart deaktiviert, andernfalls aktiviert
+	        IF NOT #switchEmergencyOk OR #fault OR NOT #modeSelected THEN
+	            #lampAuto := FALSE;
+	            #lampManual := FALSE;
+	        ELSE
+	            #lampAuto := #autoSelected;
+	            #lampManual := NOT #autoSelected;
+	        END_IF;
+	        
+	    END_REGION
+	    
+	    REGION Acknowledge
+	        
+	        IF #fault THEN
+	            // Wenn Fehler nach Quittierung ansteht leuchtet LED, andernfalls blinkt sie
+	            IF #faultAck THEN
+	                #lampAck := TRUE;
+	            ELSE
+	                #lampAck := "Clock_1Hz";
+	            END_IF;
+	            
+	        // Wenn Betriebsart gewechselt wurde aber noch nicht quittiert blink die LED, ansonsten ist sie aus
+	        ELSIF NOT #modeSelected OR (#autoSelected <> #switchAuto) THEN
+	            #lampAck := "Clock_1Hz";
+	
+	        ELSE
+	            #lampAck := FALSE;
+	        END_IF;
+	        
+	    END_REGION
+	
+	END_REGION
+	
+	
+	
+END_FUNCTION_BLOCK
+

@@ -1,0 +1,91 @@
+﻿FUNCTION_BLOCK "AutomationMode"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_INPUT 
+      automationMode : Bool;
+      switchStart : Bool;
+      switchStop : Bool;
+      analogValue : Int;
+   END_VAR
+
+   VAR_OUTPUT 
+      scaledValue : Real;
+   END_VAR
+
+   VAR 
+      instStartRise {InstructionName := 'R_TRIG'; LibVersion := '1.0'; ExternalAccessible := 'False'; ExternalVisible := 'False'; ExternalWritable := 'False'; S7_SetPoint := 'False'} : R_TRIG;
+      instStopFall {InstructionName := 'F_TRIG'; LibVersion := '1.0'; S7_SetPoint := 'False'} : F_TRIG;
+      start { S7_SetPoint := 'True'} : Bool;
+      stop : Bool;
+      instScalingSensorA : "Scaling";
+   END_VAR
+
+   VAR_TEMP 
+      tempScaledValue : Real;
+   END_VAR
+
+   VAR CONSTANT 
+      initialScaledValue : Real := 0.0;
+   END_VAR
+
+
+BEGIN
+	REGION Description
+	  //======================================================================
+	  // (C)Copyright Andreas Benz 2026
+	  //----------------------------------------------------------------------
+	  // Title: AutomationMode
+	  // Comment/Function: This function block handles the mode automation
+	  // Library/Family: --
+	  // Author: Andreas Benz
+	  // Tested on System: S7 PLCSIM V20
+	  // Engineering: TIA Portal V20
+	  // Restrictions: --
+	  // Requirements: --
+	  //----------------------------------------------------------------------
+	  // Change log tables:
+	  // Version     | Date       | Expert in charge | Changes applied
+	  //-------------|------------|------------------|------------------------
+	  // 001.000.000 | 2026-01-23 | Andreas Benz     | First released version
+	  //======================================================================
+	END_REGION Description
+	
+	REGION Initialisation
+	  #instStartRise(CLK := #switchStart);
+	  #instStopFall(CLK := #switchStop);
+	  
+	  IF (#instStartRise.Q) THEN
+	    #start := TRUE;
+	    #stop := FALSE;
+	  END_IF;
+	  
+	  IF (#instStopFall.Q) THEN
+	    #start := FALSE;
+	    #stop := TRUE;
+	  END_IF;
+	  
+	  #instScalingSensorA(analogValue := #analogValue,
+	                      minNorm := 0,
+	                      maxNorm := 27648,
+	                      minScale := 0,
+	                      maxScale := 100,
+	                      scaledValue => #tempScaledValue);
+	END_REGION
+	
+	REGION START
+	  
+	  IF #automationMode AND #start THEN
+	    #scaledValue := #tempScaledValue;
+	  END_IF;
+	  
+	END_REGION
+	
+	REGION STOP
+	  IF #automationMode AND #stop THEN
+	    #scaledValue := #initialScaledValue;
+	  END_IF;
+	  
+	END_REGION
+	
+END_FUNCTION_BLOCK
+
