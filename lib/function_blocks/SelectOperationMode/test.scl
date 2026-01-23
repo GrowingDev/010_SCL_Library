@@ -1,100 +1,52 @@
-FUNCTION_BLOCK "GetSunTimesLocal"
+FUNCTION_BLOCK "Scaling"
 { S7_Optimized_Access := 'TRUE' }
 VERSION : 0.1
    VAR_INPUT 
-      LocalTime {InstructionName := 'DTL'; LibVersion := '1.0'} : DTL;
+      analogValue : Int;
+      minNorm : Int;
+      maxNorm : Int;
+      minScale : Int;
+      maxScale : Int;
    END_VAR
 
    VAR_OUTPUT 
-      Sunrise_Hour : USInt;
-      Sunrise_Minute : USInt;
-      Sunset_Hour : USInt;
-      Sunset_Minute : USInt;
-      Day : Bool;
-      Night : Bool;
-      debug_Sunset : Time_Of_Day;
-      debug_Sunrise : Time_Of_Day;
-      debug_local_datetime : Time_Of_Day;
-   END_VAR
-
-   VAR 
-      Sunset : Time_Of_Day;
-      Sunrise : Time_Of_Day;
+      scaledValue : Real;
    END_VAR
 
    VAR_TEMP 
-      localDateTime : Time_Of_Day;
-      TotalSunSetTime : Time;
-      localTimeinUSINT : Real;
-   END_VAR
-
-   VAR CONSTANT 
-      HOURINMILLISECONDS : Real := 3600000.0;
-      MINUTES : Real := 60.0;
-      TOTALHOURSPERDAY : Time := T#24h;
+      normedValue : Real;
    END_VAR
 
 
 BEGIN
-	
 	REGION Description
-	    //======================================================================
-	    // (C)Copyright Andreas Benz 2026
-	    //----------------------------------------------------------------------
-	    // Title: GetSuntimesLocal
-	    // Comment/Function: This function block displays the time for sunrise and sunset based on the given local time. It also shows the current datetime.
-	    // Library/Family: --
-	    // Author: Andreas Benz
-	    // Tested on System: S7-1200  CPU1215C DC/DC/RLY
-	    // Engineering: TIA Portal V19
-	    // Restrictions: --
-	    // Requirements: --
-	    //----------------------------------------------------------------------
-	    // Change log tables:
-	    // Version     | Date       | Expert in charge | Changes applied
-	    //-------------|------------|------------------|------------------------
-	    // 001.000.000 | 2026-01-23 | Andreas Benz     | First released version
-	    //======================================================================
-	END_REGION Description
-	
-	REGION Get local datetime
-	    #localDateTime := TOD#00:00:00
-	    + TIME#1h * #LocalTime.HOUR
-	    + TIME#1m * #LocalTime.MINUTE;
-	    
-	    #debug_local_datetime := #localDateTime;
+	  //======================================================================
+	  // (C)Copyright Andreas Benz 2026
+	  //----------------------------------------------------------------------
+	  // Title: Scaling
+	  // Comment/Function: This function block normalise and scale a analog value e.g 0-10V
+	  // Library/Family: --
+	  // Author: Andreas Benz
+	  // Tested on System: S7 PLCSIM V20
+	  // Engineering: TIA Portal V20
+	  // Restrictions: --
+	  // Requirements: --
+	  //----------------------------------------------------------------------
+	  // Change log table:
+	  // Version     | Date       | Expert in charge | Changes applied
+	  //-------------|------------|------------------|------------------------
+	  // 001.000.000 | 2026-01-22 | Andreas Benz     | First released version
+	  //======================================================================
 	END_REGION
 	
-	REGION Get Sunrise
-	    #Sunrise_Hour := "TimeDB".Day[#LocalTime.DAY].Sunrise / 100;
-	    #Sunrise_Minute := "TimeDB".Day[#LocalTime.DAY].Sunrise MOD 100;
-	    
-	    #debug_Sunrise := #Sunrise;
-	    
+	REGION Normalisation
+	
+	  #normedValue := NORM_X(MIN := #minNorm, VALUE := #analogValue, MAX := #maxNorm);
+	  
 	END_REGION
 	
-	REGION Get Sunset
-	    #Sunset_Hour := "TimeDB".Day[#LocalTime.DAY].Sunset / 100;
-	    #Sunset_Minute := "TimeDB".Day[#LocalTime.DAY].Sunset MOD 100
-	    
-	    #debug_Sunset := #Sunset;
-	END_REGION
-	
-	
-	REGION Get datetime
-	
-	IF #Sunrise = #Sunset THEN
-	    #Day := FALSE;
-	ELSIF (#Sunrise <= #Sunset) THEN
-	    // normaler Tag
-	    #Day := (#localDateTime >= #Sunrise) AND (#localDateTime < #Sunset);
-	ELSE
-	    // über Mitternacht
-	    #Day := (#localDateTime >= #Sunrise) OR (#localDateTime < #Sunset);
-	END_IF;
-	
-	#Night := NOT #Day;
-	    
+	REGION Scaling
+	  #scaledValue := SCALE_X(MIN := #minScale, VALUE := #normValue, MAX := #maxScale);	
 	END_REGION
 END_FUNCTION_BLOCK
 
